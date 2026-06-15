@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#F6F1E7" />
+<link rel="manifest" href="manifest.json" />
+<title>キャラ手帖</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap');
+
+  :root {
+    --paper: #F6F1E7;
+    --paper-deep: #EFE7D8;
+    --ink: #2B2B33;
+    --ink-soft: #6E6B63;
+    --line: #DDD3C0;
+    --coral: #D9714E;
+    --coral-soft: #F4E0D6;
+    --bubble-user: #EFE3C8;
+    --bubble-ai: #FFFFFF;
+    --danger: #C0524A;
+    font-size: 16px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: var(--paper);
+  }
+
+  /* ---------- 共通ヘッダー ---------- */
+  .topbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: max(14px, env(safe-area-inset-top)) 20px 12px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
+    z-index: 5;
+  }
+  .topbar h1 {
+    font-family: 'Shippori Mincho', serif;
+    font-weight: 700;
+    font-size: 20px;
+    margin: 0;
+    letter-spacing: 0.04em;
+  }
+  .icon-btn {
+    border: none;
+    background: none;
+    color: var(--ink);
+    font-size: 22px;
+    line-height: 1;
+    padding: 6px;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .icon-btn:active { background: var(--paper-deep); }
+
+  /* ---------- 画面切り替え ---------- */
+  .screen {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    display: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* ---------- キャラ一覧 ---------- */
+  #screen-list .list-wrap {
+    padding: 16px 16px 100px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .empty-state {
+    margin-top: 40px;
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 1.9;
+  }
+  .empty-state .em-icon {
+    font-size: 40px;
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  .char-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 14px;
+    cursor: pointer;
+    text-align: left;
+    position: relative;
+    transition: transform 0.06s ease;
+  }
+  .char-card:active { transform: scale(0.985); }
+  .char-avatar {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Shippori Mincho', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    flex: 0 0 auto;
+  }
+  .char-info { flex: 1 1 auto; min-width: 0; }
+  .char-info .name {
+    font-weight: 700;
+    font-size: 16px;
+    margin: 0 0 2px;
+  }
+  .char-info .preview {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .char-card .chev { color: var(--ink-soft); font-size: 18px; }
+
+  /* ---------- FAB ---------- */
+  .fab {
+    position: absolute;
+    right: 20px;
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--coral);
+    color: #fff;
+    border: none;
+    font-size: 26px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 14px rgba(217,113,78,0.35);
+    cursor: pointer;
+    z-index: 10;
+  }
+  .fab:active { transform: scale(0.96); }
+
+  /* ---------- フォーム共通 ---------- */
+  .form-wrap {
+    padding: 20px 20px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+    letter-spacing: 0.03em;
+  }
+  .field .hint {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin: 4px 2px 0;
+    line-height: 1.6;
+  }
+  input[type=text], textarea, select {
+    width: 100%;
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 11px 13px;
+    resize: vertical;
+  }
+  input[type=text]:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--coral);
+  }
+  textarea { line-height: 1.7; }
+
+  .avatar-picker {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .avatar-swatch {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-family: 'Shippori Mincho', serif;
+    font-weight: 700;
+  }
+  .avatar-swatch.selected { border-color: var(--ink); }
+
+  .primary-btn {
+    background: var(--coral);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.04em;
+  }
+  .primary-btn:active { opacity: 0.85; }
+  .primary-btn.danger { background: var(--danger); }
+  .ghost-btn {
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    font-size: 14px;
+    padding: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  /* ---------- チャット画面 ---------- */
+  #screen-chat .topbar { gap: 10px; }
+  #screen-chat .topbar .who {
+    display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
+  }
+  #screen-chat .topbar .who .name {
+    font-family: 'Shippori Mincho', serif;
+    font-weight: 700;
+    font-size: 17px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chat-avatar-sm {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    font-family: 'Shippori Mincho', serif;
+    font-weight: 700;
+    font-size: 14px;
+    flex: 0 0 auto;
+  }
+
+  .messages {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 16px 16px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .msg-row { display: flex; }
+  .msg-row.user { justify-content: flex-end; }
+  .msg-row.ai { justify-content: flex-start; }
+  .bubble {
+    max-width: 78%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 15px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg-row.user .bubble {
+    background: var(--bubble-user);
+    border-bottom-right-radius: 4px;
+  }
+  .msg-row.ai .bubble {
+    background: var(--bubble-ai);
+    border: 1px solid var(--line);
+    border-bottom-left-radius: 4px;
+  }
+  .msg-row.ai .bubble.typing { color: var(--ink-soft); font-style: italic; }
+  .msg-row.system { justify-content: center; }
+  .msg-row.system .bubble {
+    background: transparent;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 12px;
+    text-align: center;
+    max-width: 100%;
+  }
+
+  .composer {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .composer textarea {
+    flex: 1;
+    max-height: 120px;
+    border-radius: 18px;
+    padding: 10px 16px;
+  }
+  .send-btn {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    background: var(--coral);
+    color: #fff;
+    border: none;
+    font-size: 18px;
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .send-btn:disabled { background: var(--line); }
+
+  /* ---------- 設定画面 ---------- */
+  #screen-settings .form-wrap { gap: 14px; }
+  .settings-note {
+    background: var(--coral-soft);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: var(--ink);
+  }
+
+  /* スクロールバー控えめ */
+  ::-webkit-scrollbar { width: 0px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ 一覧画面 ============ -->
+  <section id="screen-list" class="screen active">
+    <div class="topbar">
+      <h1>キャラ手帖</h1>
+      <button class="icon-btn" id="open-settings" aria-label="設定">⚙</button>
+    </div>
+    <div class="list-wrap" id="char-list"></div>
+    <button class="fab" id="open-new-char" aria-label="新しいキャラを作る">＋</button>
+  </section>
+
+  <!-- ============ キャラ作成/編集画面 ============ -->
+  <section id="screen-edit" class="screen">
+    <div class="topbar">
+      <button class="icon-btn" id="edit-back" aria-label="戻る">←</button>
+      <h1 id="edit-title">新しいキャラ</h1>
+      <span style="width:34px"></span>
+    </div>
+    <div class="form-wrap">
+      <div class="field">
+        <label for="f-name">名前</label>
+        <input type="text" id="f-name" placeholder="例: 紫雲 ゼータ" maxlength="20" />
+      </div>
+
+      <div class="field">
+        <label>アイコンの色</label>
+        <div class="avatar-picker" id="avatar-picker"></div>
+      </div>
+
+      <div class="field">
+        <label for="f-personality">性格・キャラクター設定</label>
+        <textarea id="f-personality" rows="3" placeholder="例: 飄々として皮肉屋だが、根は優しい。猫が好き。"></textarea>
+        <p class="hint">どんな性格・価値観・背景を持つかを書いてください。</p>
+      </div>
+
+      <div class="field">
+        <label for="f-tone">口調・話し方</label>
+        <textarea id="f-tone" rows="2" placeholder="例: 敬語は使わず、少しタメ口。一人称は「俺」。"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="f-first">最初のセリフ(任意)</label>
+        <textarea id="f-first" rows="2" placeholder="例: お、来たな。今日はどうした？"></textarea>
+        <p class="hint">空欄の場合は会話開始時に自然に話し始めます。</p>
+      </div>
+
+      <button class="primary-btn" id="save-char">保存する</button>
+      <button class="primary-btn danger" id="delete-char" style="display:none;">このキャラを削除</button>
+    </div>
+  </section>
+
+  <!-- ============ チャット画面 ============ -->
+  <section id="screen-chat" class="screen">
+    <div class="topbar">
+      <button class="icon-btn" id="chat-back" aria-label="戻る">←</button>
+      <div class="who">
+        <div class="chat-avatar-sm" id="chat-avatar"></div>
+        <div class="name" id="chat-name"></div>
+      </div>
+      <button class="icon-btn" id="chat-edit" aria-label="このキャラを編集">✎</button>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="composer">
+      <textarea id="chat-input" rows="1" placeholder="メッセージを入力..."></textarea>
+      <button class="send-btn" id="send-btn" aria-label="送信">↑</button>
+    </div>
+  </section>
+
+  <!-- ============ 設定画面 ============ -->
+  <section id="screen-settings" class="screen">
+    <div class="topbar">
+      <button class="icon-btn" id="settings-back" aria-label="戻る">←</button>
+      <h1>設定</h1>
+      <span style="width:34px"></span>
+    </div>
+    <div class="form-wrap">
+      <div class="field">
+        <label for="f-model">使用モデル</label>
+        <select id="f-model">
+          <option value="claude-sonnet-4-6">Claude Sonnet 4.6(標準)</option>
+          <option value="claude-opus-4-6">Claude Opus 4.6(高性能)</option>
+          <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5(高速・軽量)</option>
+        </select>
+      </div>
+      <div class="settings-note">
+        APIキーはこのアプリには保存されません。Cloudflare Pagesの管理画面で環境変数 <code>ANTHROPIC_API_KEY</code> を設定してください。
+      </div>
+      <button class="ghost-btn" id="clear-all">すべてのキャラと会話履歴を削除</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ============================================================
+   APIキーはここには書きません。
+   Cloudflare Pagesの環境変数 ANTHROPIC_API_KEY に設定すると、
+   /functions/api/chat.js のサーバー関数が安全に呼び出します。
+============================================================ */
+
+const STORAGE_KEY = "charchat_data_v1";
+const AVATAR_COLORS = ["#D9714E", "#6E8E6B", "#7E7BB5", "#C98A3A", "#5C8FA8", "#B16685", "#8B8B6E"];
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return { model: "claude-sonnet-4-6", chars: [] };
+}
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+let state = loadData();
+if (!state.model) state.model = "claude-sonnet-4-6";
+if (!state.chars) state.chars = [];
+
+let currentEditId = null;
+let currentChatId = null;
+let selectedAvatarColor = AVATAR_COLORS[0];
+
+// ---------- 画面遷移 ----------
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+// ---------- 一覧描画 ----------
+function renderList() {
+  const wrap = document.getElementById("char-list");
+  wrap.innerHTML = "";
+  if (state.chars.length === 0) {
+    wrap.innerHTML = `<div class="empty-state">
+      <span class="em-icon">📓</span>
+      まだキャラがいません。<br/>
+      右下の「＋」から最初のキャラを作ってみましょう。
+    </div>`;
+    return;
+  }
+  state.chars.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "char-card";
+    const lastMsg = c.history && c.history.length
+      ? c.history[c.history.length - 1].content
+      : "まだ会話していません";
+    card.innerHTML = `
+      <div class="char-avatar" style="background:${c.color}">${escapeHtml(initials(c.name))}</div>
+      <div class="char-info">
+        <p class="name">${escapeHtml(c.name)}</p>
+        <p class="preview">${escapeHtml(lastMsg)}</p>
+      </div>
+      <div class="chev">›</div>
+    `;
+    card.addEventListener("click", () => openChat(c.id));
+    wrap.appendChild(card);
+  });
+}
+
+function initials(name) {
+  if (!name) return "?";
+  return name.trim().slice(0, 1);
+}
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+// ---------- キャラ作成/編集 ----------
+function openEditScreen(charId) {
+  currentEditId = charId;
+  const titleEl = document.getElementById("edit-title");
+  const deleteBtn = document.getElementById("delete-char");
+
+  buildAvatarPicker();
+
+  if (charId) {
+    const c = state.chars.find(x => x.id === charId);
+    titleEl.textContent = "キャラを編集";
+    document.getElementById("f-name").value = c.name;
+    document.getElementById("f-personality").value = c.personality;
+    document.getElementById("f-tone").value = c.tone;
+    document.getElementById("f-first").value = c.firstLine || "";
+    selectedAvatarColor = c.color;
+    deleteBtn.style.display = "block";
+  } else {
+    titleEl.textContent = "新しいキャラ";
+    document.getElementById("f-name").value = "";
+    document.getElementById("f-personality").value = "";
+    document.getElementById("f-tone").value = "";
+    document.getElementById("f-first").value = "";
+    selectedAvatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+    deleteBtn.style.display = "none";
+  }
+  buildAvatarPicker();
+  showScreen("screen-edit");
+}
+
+function buildAvatarPicker() {
+  const picker = document.getElementById("avatar-picker");
+  picker.innerHTML = "";
+  AVATAR_COLORS.forEach(color => {
+    const sw = document.createElement("div");
+    sw.className = "avatar-swatch" + (color === selectedAvatarColor ? " selected" : "");
+    sw.style.background = color;
+    sw.textContent = "あ";
+    sw.addEventListener("click", () => {
+      selectedAvatarColor = color;
+      buildAvatarPicker();
+    });
+    picker.appendChild(sw);
+  });
+}
+
+document.getElementById("save-char").addEventListener("click", () => {
+  const name = document.getElementById("f-name").value.trim();
+  const personality = document.getElementById("f-personality").value.trim();
+  const tone = document.getElementById("f-tone").value.trim();
+  const firstLine = document.getElementById("f-first").value.trim();
+
+  if (!name) {
+    alert("名前を入力してください。");
+    return;
+  }
+
+  if (currentEditId) {
+    const c = state.chars.find(x => x.id === currentEditId);
+    c.name = name;
+    c.personality = personality;
+    c.tone = tone;
+    c.firstLine = firstLine;
+    c.color = selectedAvatarColor;
+  } else {
+    state.chars.push({
+      id: "char_" + Date.now(),
+      name, personality, tone, firstLine,
+      color: selectedAvatarColor,
+      history: []
+    });
+  }
+  saveData();
+  renderList();
+  showScreen("screen-list");
+});
+
+document.getElementById("delete-char").addEventListener("click", () => {
+  if (!confirm("このキャラと会話履歴を削除します。よろしいですか？")) return;
+  state.chars = state.chars.filter(x => x.id !== currentEditId);
+  saveData();
+  renderList();
+  showScreen("screen-list");
+});
+
+document.getElementById("edit-back").addEventListener("click", () => showScreen("screen-list"));
+document.getElementById("open-new-char").addEventListener("click", () => openEditScreen(null));
+
+// ---------- チャット ----------
+function openChat(charId) {
+  currentChatId = charId;
+  const c = state.chars.find(x => x.id === charId);
+  document.getElementById("chat-name").textContent = c.name;
+  const avatar = document.getElementById("chat-avatar");
+  avatar.style.background = c.color;
+  avatar.textContent = initials(c.name);
+
+  renderMessages();
+  showScreen("screen-chat");
+
+  // 初回かつfirstLineがあれば表示
+  if (c.history.length === 0 && c.firstLine) {
+    c.history.push({ role: "assistant", content: c.firstLine });
+    saveData();
+    renderMessages();
+  }
+
+  setTimeout(() => {
+    document.getElementById("chat-input").focus();
+  }, 200);
+}
+
+document.getElementById("chat-back").addEventListener("click", () => {
+  showScreen("screen-list");
+  renderList();
+});
+document.getElementById("chat-edit").addEventListener("click", () => {
+  openEditScreen(currentChatId);
+});
+
+function renderMessages() {
+  const c = state.chars.find(x => x.id === currentChatId);
+  const wrap = document.getElementById("messages");
+  wrap.innerHTML = "";
+  c.history.forEach(m => {
+    const row = document.createElement("div");
+    row.className = "msg-row " + (m.role === "user" ? "user" : "ai");
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = m.content;
+    row.appendChild(bubble);
+    wrap.appendChild(row);
+  });
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function addSystemNote(text) {
+  const wrap = document.getElementById("messages");
+  const row = document.createElement("div");
+  row.className = "msg-row system";
+  row.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
+  wrap.appendChild(row);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function buildSystemPrompt(c) {
+  let prompt = `あなたは「${c.name}」というキャラクターです。以下の設定に厳密になりきって、ユーザーと自然に会話してください。\n\n`;
+  if (c.personality) prompt += `【性格・背景】\n${c.personality}\n\n`;
+  if (c.tone) prompt += `【口調・話し方】\n${c.tone}\n\n`;
+  prompt += `常にこのキャラクターとして一人称視点で応答し、AIであることやシステム的な内容には触れないでください。返答は短めの自然な会話文にしてください。`;
+  return prompt;
+}
+
+const chatInput = document.getElementById("chat-input");
+chatInput.addEventListener("input", () => {
+  chatInput.style.height = "auto";
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + "px";
+});
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+document.getElementById("send-btn").addEventListener("click", sendMessage);
+
+async function sendMessage() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+  const c = state.chars.find(x => x.id === currentChatId);
+
+  c.history.push({ role: "user", content: text });
+  chatInput.value = "";
+  chatInput.style.height = "auto";
+  saveData();
+  renderMessages();
+  renderList();
+
+  // typing表示
+  const wrap = document.getElementById("messages");
+  const typingRow = document.createElement("div");
+  typingRow.className = "msg-row ai";
+  typingRow.innerHTML = `<div class="bubble typing">…</div>`;
+  wrap.appendChild(typingRow);
+  wrap.scrollTop = wrap.scrollHeight;
+
+  document.getElementById("send-btn").disabled = true;
+
+  try {
+    const reply = await callClaude(c);
+    typingRow.remove();
+    c.history.push({ role: "assistant", content: reply });
+    saveData();
+    renderMessages();
+    renderList();
+  } catch (err) {
+    typingRow.remove();
+    addSystemNote("送信に失敗しました: " + (err.message || err));
+  } finally {
+    document.getElementById("send-btn").disabled = false;
+  }
+}
+
+async function callClaude(c) {
+  const messages = c.history.map(m => ({ role: m.role, content: m.content }));
+
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: state.model || "claude-sonnet-4-6",
+      system: buildSystemPrompt(c),
+      messages: messages
+    })
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error("API エラー (" + res.status + "): " + errText.slice(0, 200));
+  }
+
+  const data = await res.json();
+  const textBlock = (data.content || []).find(b => b.type === "text");
+  return textBlock ? textBlock.text : "(返答がありませんでした)";
+}
+
+// ---------- 設定 ----------
+document.getElementById("open-settings").addEventListener("click", () => {
+  document.getElementById("f-model").value = state.model;
+  showScreen("screen-settings");
+});
+document.getElementById("settings-back").addEventListener("click", () => showScreen("screen-list"));
+document.getElementById("f-model").addEventListener("change", (e) => {
+  state.model = e.target.value;
+  saveData();
+});
+document.getElementById("clear-all").addEventListener("click", () => {
+  if (!confirm("すべてのキャラと会話履歴を削除します。元に戻せません。よろしいですか？")) return;
+  state.chars = [];
+  saveData();
+  renderList();
+  showScreen("screen-list");
+});
+
+// ---------- 初期化 ----------
+renderList();
+
+// ---------- PWA: Service Worker ----------
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
